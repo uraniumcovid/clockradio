@@ -30,6 +30,7 @@ struct App {
     alarm_time: Option<DateTime<Local>>,
     show_alarm_dialog: bool,
     alarm_input: String,
+    animation_frame: u32,
 }
 
 impl App {
@@ -39,6 +40,7 @@ impl App {
             alarm_time: None,
             show_alarm_dialog: false,
             alarm_input: String::new(),
+            animation_frame: 0,
         }
     }
 
@@ -211,6 +213,57 @@ fn format_time_ascii(time_str: &str) -> Vec<String> {
     lines
 }
 
+fn generate_animated_background(frame: u32, width: u16, height: u16) -> Vec<String> {
+    let mut background = Vec::new();
+    
+    for y in 0..height {
+        let mut line = String::new();
+        for x in 0..width {
+            let char_to_add = if y == height - 3 && x >= 2 && x <= 8 {
+                // Street lamp pole
+                if x == 5 {
+                    '│'
+                } else {
+                    ' '
+                }
+            } else if y == height - 4 && x >= 3 && x <= 7 {
+                // Street lamp light (animated glow)
+                let glow_intensity = (frame as f32 * 0.1).sin() * 0.5 + 0.5;
+                if glow_intensity > 0.3 {
+                    if x == 5 {
+                        '●'
+                    } else {
+                        '·'
+                    }
+                } else {
+                    if x == 5 {
+                        '○'
+                    } else {
+                        ' '
+                    }
+                }
+            } else if y < height - 5 {
+                // Rain/wind effect
+                let wind_offset = ((frame as f32 * 0.05).sin() * 2.0) as i32;
+                let rain_pos = (x as i32 + y as i32 + wind_offset + (frame / 3) as i32) % 7;
+                if rain_pos == 0 && (frame + x as u32) % 13 == 0 {
+                    '·'
+                } else if rain_pos == 1 && (frame + x as u32) % 17 == 0 {
+                    '`'
+                } else {
+                    ' '
+                }
+            } else {
+                ' '
+            };
+            line.push(char_to_add);
+        }
+        background.push(line);
+    }
+    
+    background
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let _cli = Cli::parse();
@@ -263,12 +316,27 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::R
             }
         }
 
+        app.animation_frame = app.animation_frame.wrapping_add(1);
         sleep(Duration::from_millis(50)).await;
     }
 }
 
 fn ui(f: &mut ratatui::Frame, app: &App) {
     let size = f.size();
+    
+    // Render animated background
+    let background_lines = generate_animated_background(app.animation_frame, size.width, size.height);
+    let mut bg_spans = Vec::new();
+    for line in background_lines {
+        bg_spans.push(Line::from(vec![Span::styled(
+            line,
+            Style::default().fg(Color::Rgb(100, 100, 100)),
+        )]));
+    }
+    
+    let background = Paragraph::new(bg_spans)
+        .style(Style::default().bg(Color::Black));
+    f.render_widget(background, size);
     
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -281,7 +349,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let header = Paragraph::new("'a' alarm | 'q' quit")
         .alignment(Alignment::Center)
-        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
+        .style(Style::default().fg(Color::Rgb(255, 107, 138)));
 
     f.render_widget(header, main_layout[0]);
 
@@ -313,12 +381,11 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let clock_block = Block::default()
         .borders(Borders::ALL)
-        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
+        .style(Style::default().fg(Color::Rgb(255, 107, 138)));
 
     let clock = Paragraph::new(clock_lines)
         .block(clock_block)
-        .alignment(Alignment::Center)
-        .style(Style::default().bg(Color::Black));
+        .alignment(Alignment::Center);
 
     f.render_widget(clock, main_layout[1]);
 
@@ -335,7 +402,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let alarm_widget = Paragraph::new(alarm_text)
         .alignment(Alignment::Center)
-        .style(Style::default().bg(Color::Black).fg(Color::White));
+        .style(Style::default().fg(Color::White));
 
     f.render_widget(alarm_widget, bottom_layout[0]);
 

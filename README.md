@@ -2,15 +2,6 @@
 
 A simple terminal-based clock radio application written in Rust with a beautiful pink and black color scheme.
 
-## Features
-
-- **Large Clock Display**: Shows current time and date prominently
-- **Weather Information**: Displays current weather (requires API key)
-- **Alarm Functionality**: Set simple alarms with time input
-- **Pink & Black Theme**: Beautiful color scheme with pink highlights on black background
-
-## Usage
-
 ### Building and Running
 
 Option 1: Use the provided script (recommended for NixOS):
