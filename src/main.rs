@@ -82,6 +82,135 @@ impl App {
     }
 }
 
+fn get_ascii_digit(digit: char) -> Vec<&'static str> {
+    match digit {
+        '0' => vec![
+            "███████",
+            "██   ██",
+            "██   ██",
+            "██   ██",
+            "██   ██",
+            "██   ██",
+            "███████",
+        ],
+        '1' => vec![
+            "   ██  ",
+            "  ███  ",
+            "   ██  ",
+            "   ██  ",
+            "   ██  ",
+            "   ██  ",
+            "███████",
+        ],
+        '2' => vec![
+            "███████",
+            "      ██",
+            "      ██",
+            "███████",
+            "██     ",
+            "██     ",
+            "███████",
+        ],
+        '3' => vec![
+            "███████",
+            "      ██",
+            "      ██",
+            "███████",
+            "      ██",
+            "      ██",
+            "███████",
+        ],
+        '4' => vec![
+            "██   ██",
+            "██   ██",
+            "██   ██",
+            "███████",
+            "      ██",
+            "      ██",
+            "      ██",
+        ],
+        '5' => vec![
+            "███████",
+            "██     ",
+            "██     ",
+            "███████",
+            "      ██",
+            "      ██",
+            "███████",
+        ],
+        '6' => vec![
+            "███████",
+            "██     ",
+            "██     ",
+            "███████",
+            "██   ██",
+            "██   ██",
+            "███████",
+        ],
+        '7' => vec![
+            "███████",
+            "      ██",
+            "      ██",
+            "      ██",
+            "      ██",
+            "      ██",
+            "      ██",
+        ],
+        '8' => vec![
+            "███████",
+            "██   ██",
+            "██   ██",
+            "███████",
+            "██   ██",
+            "██   ██",
+            "███████",
+        ],
+        '9' => vec![
+            "███████",
+            "██   ██",
+            "██   ██",
+            "███████",
+            "      ██",
+            "      ██",
+            "███████",
+        ],
+        ':' => vec![
+            "       ",
+            "   ██  ",
+            "   ██  ",
+            "       ",
+            "   ██  ",
+            "   ██  ",
+            "       ",
+        ],
+        _ => vec![
+            "       ",
+            "       ",
+            "       ",
+            "       ",
+            "       ",
+            "       ",
+            "       ",
+        ],
+    }
+}
+
+fn format_time_ascii(time_str: &str) -> Vec<String> {
+    let mut lines = vec![String::new(); 7];
+    
+    for ch in time_str.chars() {
+        let digit_lines = get_ascii_digit(ch);
+        for (i, line) in digit_lines.iter().enumerate() {
+            if i < lines.len() {
+                lines[i].push_str(line);
+                lines[i].push(' ');
+            }
+        }
+    }
+    
+    lines
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let _cli = Cli::parse();
@@ -144,21 +273,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(1),
+            Constraint::Min(1),
             Constraint::Length(3),
-            Constraint::Min(10),
-            Constraint::Length(5),
         ])
         .split(size);
 
-    let header_block = Block::default()
-        .title("Clock Radio")
-        .borders(Borders::ALL)
-        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
-
-    let header = Paragraph::new("Press 'a' for alarm, 'q' to quit")
-        .block(header_block)
+    let header = Paragraph::new("'a' alarm | 'q' quit")
         .alignment(Alignment::Center)
-        .style(Style::default().bg(Color::Black).fg(Color::White));
+        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
 
     f.render_widget(header, main_layout[0]);
 
@@ -166,18 +289,27 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let time_str = now.format("%H:%M").to_string();
     let date_str = now.format("%A, %B %d, %Y").to_string();
 
-    let clock_lines = vec![
-        Line::from(vec![Span::styled(
-            time_str,
+    let ascii_lines = format_time_ascii(&time_str);
+    let mut clock_lines = Vec::new();
+    
+    for line in ascii_lines {
+        clock_lines.push(Line::from(vec![Span::styled(
+            line,
             Style::default()
                 .fg(Color::Rgb(255, 107, 138))
                 .add_modifier(Modifier::BOLD),
-        )]),
-        Line::from(vec![Span::styled(
-            date_str,
-            Style::default().fg(Color::White),
-        )]),
-    ];
+        )]));
+    }
+    
+    clock_lines.push(Line::from(vec![Span::styled(
+        "",
+        Style::default().fg(Color::White),
+    )]));
+    
+    clock_lines.push(Line::from(vec![Span::styled(
+        date_str,
+        Style::default().fg(Color::White),
+    )]));
 
     let clock_block = Block::default()
         .borders(Borders::ALL)
@@ -192,49 +324,20 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
 
     let bottom_layout = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([Constraint::Percentage(100)])
         .split(main_layout[2]);
 
-    let info_text = vec![
-        Line::from(vec![Span::styled(
-            "Clock Radio",
-            Style::default().fg(Color::White),
-        )]),
-        Line::from(vec![Span::styled(
-            "Press 'a' for alarm",
-            Style::default().fg(Color::White),
-        )]),
-    ];
-
-    let info_block = Block::default()
-        .title("Info")
-        .borders(Borders::ALL)
-        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
-
-    let info_widget = Paragraph::new(info_text)
-        .block(info_block)
-        .style(Style::default().bg(Color::Black));
-
-    f.render_widget(info_widget, bottom_layout[0]);
-
-    let mut alarm_text = vec![Line::from("No alarm set")];
-    if let Some(alarm_time) = app.alarm_time {
-        alarm_text = vec![Line::from(vec![Span::styled(
-            format!("Alarm: {}", alarm_time.format("%H:%M")),
-            Style::default().fg(Color::White),
-        )])];
-    }
-
-    let alarm_block = Block::default()
-        .title("Alarm")
-        .borders(Borders::ALL)
-        .style(Style::default().bg(Color::Black).fg(Color::Rgb(255, 107, 138)));
+    let alarm_text = if let Some(alarm_time) = app.alarm_time {
+        format!("Alarm: {}", alarm_time.format("%H:%M"))
+    } else {
+        "No alarm set".to_string()
+    };
 
     let alarm_widget = Paragraph::new(alarm_text)
-        .block(alarm_block)
-        .style(Style::default().bg(Color::Black));
+        .alignment(Alignment::Center)
+        .style(Style::default().bg(Color::Black).fg(Color::White));
 
-    f.render_widget(alarm_widget, bottom_layout[1]);
+    f.render_widget(alarm_widget, bottom_layout[0]);
 
     if app.show_alarm_dialog {
         let popup_area = centered_rect(40, 20, size);
